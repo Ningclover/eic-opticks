@@ -10,6 +10,7 @@
 #include "G4UImanager.hh"
 #include "G4VisExecutive.hh"
 
+#include <QtCore/QString>
 #include "sysrap/OPTICKS_LOG.hh"
 #include "config.h"
 #include "GPURaytrace.h"
