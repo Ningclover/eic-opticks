@@ -403,6 +403,13 @@ struct RunAction : G4UserRunAction
             std::cout << "Opticks: NumHits:  " << num_hits << std::endl;
             std::cout << "Geant4: NumHits:  " << fEventAction->GetTotalG4Hits() << std::endl;
 
+            std::ofstream outFile("opticks_hits_output.txt");
+            if (!outFile.is_open())
+            {
+                std::cerr << "Error opening output file!" << std::endl;
+                return;
+            }
+
             const bool emit_trackid = getenv("OPTICKS_MC_TRUTH") != nullptr;
             for (int idx = 0; idx < int(num_hits); idx++)
             {
@@ -440,6 +447,8 @@ struct RunAction : G4UserRunAction
                 }
                 outFile << std::endl;
             }
+
+            outFile.close();
 
             if (fSavePhotonHistory)
             {

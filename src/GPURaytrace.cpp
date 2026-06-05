@@ -14,7 +14,6 @@
 #include "sysrap/OPTICKS_LOG.hh"
 #include "config.h"
 #include "GPURaytrace.h"
-#include "config.h"
 
 #include "G4RunManager.hh"
 #include "G4RunManagerFactory.hh"
@@ -111,7 +110,9 @@ int main(int argc, char **argv)
     CLHEP::HepRandom::setTheSeed(seed);
     G4cout << "Random seed set to: " << seed << G4endl;
 
-    gphox::Config{config_name};
+    // Construct Config (applies SEventConfig settings via Config::Apply()).
+    // Kept for later reuse so we don't re-read/re-apply the config file.
+    const gphox::Config cfg{config_name};
 
     // Configure Geant4
     // The physics list must be instantiated before other user actions
@@ -123,13 +124,8 @@ int main(int argc, char **argv)
 
     G4App *g4app = new G4App(gdml_file);
 
-    // Load config and apply savephotonhistory flag if provided
-    string config_name = program.get<string>("--config");
-    if (!config_name.empty())
-    {
-        gphox::Config cfg(config_name);
-        g4app->run_act_->fSavePhotonHistory = cfg.savephotonhistory;
-    }
+    // Apply the savephotonhistory flag from the already-loaded config.
+    g4app->run_act_->fSavePhotonHistory = cfg.savephotonhistory;
 
     ActionInitialization *actionInit = new ActionInitialization(g4app);
     run_mgr->SetUserInitialization(actionInit);
