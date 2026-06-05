@@ -403,6 +403,44 @@ struct RunAction : G4UserRunAction
             std::cout << "Opticks: NumHits:  " << num_hits << std::endl;
             std::cout << "Geant4: NumHits:  " << fEventAction->GetTotalG4Hits() << std::endl;
 
+            const bool emit_trackid = getenv("OPTICKS_MC_TRUTH") != nullptr;
+            for (int idx = 0; idx < int(num_hits); idx++)
+            {
+                sphoton hit;
+                sev->getHit(hit, idx);
+                G4ThreeVector position = G4ThreeVector(hit.pos.x, hit.pos.y, hit.pos.z);
+                G4ThreeVector direction = G4ThreeVector(hit.mom.x, hit.mom.y, hit.mom.z);
+                G4ThreeVector polarization = G4ThreeVector(hit.pol.x, hit.pol.y, hit.pol.z);
+                int theCreationProcessid;
+                if (OpticksPhoton::HasCerenkovFlag(hit.flagmask))
+                {
+                    theCreationProcessid = 0;
+                }
+                else if (OpticksPhoton::HasScintillationFlag(hit.flagmask))
+                {
+                    theCreationProcessid = 1;
+                }
+                else
+                {
+                    theCreationProcessid = -1;
+                }
+                //    std::cout << "Adding hit from Opticks:" << hit.wavelength << " " << position << " " << direction
+                //    << "
+                //    "
+                //              << polarization << std::endl;
+                outFile << hit.time << " " << hit.wavelength << "  " << "(" << position.x() << ", " << position.y()
+                        << ", " << position.z() << ")  " << "(" << direction.x() << ", " << direction.y() << ", "
+                        << direction.z() << ")  " << "(" << polarization.x() << ", " << polarization.y() << ", "
+                        << polarization.z() << ")  " << "CreationProcessID=" << theCreationProcessid;
+                if (emit_trackid)
+                {
+                    int gsidx = sev->getHitGenstepIndex(idx);
+                    int trackID = gsidx >= 0 ? int(sev->genstep[gsidx].trackid()) : -1;
+                    outFile << " TrackID=" << trackID;
+                }
+                outFile << std::endl;
+            }
+
             if (fSavePhotonHistory)
             {
                 // Save full SEvt (photon, record, seq, hit) when DebugLite/DebugHeavy
@@ -542,29 +580,38 @@ struct SteppingAction : G4UserSteppingAction
                             return;
                         }
                         // G4 11.x supports up to 3 scintillation components
-                        const G4int tcKeys[3] = {kSCINTILLATIONTIMECONSTANT1, kSCINTILLATIONTIMECONSTANT2, kSCINTILLATIONTIMECONSTANT3};
+                        const G4int tcKeys[3] = {kSCINTILLATIONTIMECONSTANT1, kSCINTILLATIONTIMECONSTANT2,
+                                                 kSCINTILLATIONTIMECONSTANT3};
                         const G4int yieldKeys[3] = {kSCINTILLATIONYIELD1, kSCINTILLATIONYIELD2, kSCINTILLATIONYIELD3};
 
                         G4double tc[3] = {0, 0, 0};
                         G4double yield[3] = {0, 0, 0};
                         G4double yieldSum = 0;
-                        G4int nComp = 0;
+                        G4int    nComp = 0;
 
                         for (G4int c = 0; c < 3; c++)
                         {
                             if (MPT->ConstPropertyExists(tcKeys[c]))
                             {
                                 tc[c] = MPT->GetConstProperty(tcKeys[c]);
-                                yield[c] = MPT->ConstPropertyExists(yieldKeys[c])
-                                               ? MPT->GetConstProperty(yieldKeys[c])
-                                               : (c == 0 ? 1.0 : 0.0);
+                                yield[c] = MPT->ConstPropertyExists(yieldKeys[c]) ? MPT->GetConstProperty(yieldKeys[c])
+                                                                                  : (c == 0 ? 1.0 : 0.0);
                                 yieldSum += yield[c];
                                 nComp = c + 1;
                             }
                         }
 
+                        if (yieldSum <= 0.0)
+                        {
+                            G4cout << "WARNING: scintillation yields sum to <= 0 for material '"
+                                   << aMaterial->GetName() << "'; falling back to single component." << G4endl;
+                            yield[0] = 1.0;
+                            yieldSum = 1.0;
+                            nComp = 1;
+                        }
+
                         G4AutoLock lock(&genstep_mutex);
-                        G4int nRemaining = fNumPhotons;
+                        G4int      nRemaining = fNumPhotons;
                         for (G4int c = 0; c < nComp; c++)
                         {
                             G4int nPhotComp;

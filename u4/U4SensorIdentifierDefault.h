@@ -117,15 +117,9 @@ inline int U4SensorIdentifierDefault::getInstanceIdentity( const G4VPhysicalVolu
     FindSD_r(sdpv, instance_outer_pv, 0 );
 
     unsigned num_sd = sdpv.size() ;
-    bool is_sensor = num_sd > 0 && has_PMT_pvn  ;
+    bool     is_sensor = num_sd > 0;
 
     int identifier = is_sensor ? copyno : -1  ;
-
-    //bool is_interesting_copyno = IsInterestingCopyNo(copyno) ;
-    //bool dump = is_sensor && is_interesting_copyno ;
-    //bool dump = false ;
-    //bool dump = true ;
-    //bool dump = num_sd > 0 ;
 
     if(level > 0) std::cout
         << "U4SensorIdentifierDefault::getIdentity"
@@ -138,7 +132,6 @@ inline int U4SensorIdentifierDefault::getInstanceIdentity( const G4VPhysicalVolu
         << " identifier " << identifier
         << std::endl
         ;
-
 
     return identifier ;
 }
@@ -177,5 +170,3 @@ inline bool U4SensorIdentifierDefault::IsInterestingCopyNo( int copyno )
            )
         ;
 }
-
-

@@ -65,13 +65,9 @@
 // Modified: bv@bnl.gov, 2008/4/16 for DetSim
 //--------------------------------------------------------------------
 //
-#ifdef STANDALONE
 
 #include "SLOG.hh"
 #include "U4.hh"
-#else
-#include <boost/python.hpp>
-#endif
 
 #include "Local_DsG4Scintillation.hh"
 #include "globals.hh"
@@ -80,26 +76,9 @@
 #include "G4UnitsTable.hh"
 #include "G4LossTableManager.hh"
 #include "G4MaterialCutsCouple.hh"
-#include "G4EmParameters.hh"
-#include "G4EmSaturation.hh"
 #include "G4Gamma.hh"
 #include "G4Electron.hh"
 #include "globals.hh"
-
-#ifdef WITH_G4OPTICKS
-#include "G4Opticks.hh"
-#include "CGenstep.hh"
-#include "CTrack.hh"
-#include "CPhotonInfo.hh"
-#include "SLOG.hh"
-#endif
-
-
-
-#ifdef WITH_G4OPTICKS
-//const plog::Severity Local_DsG4Scintillation::LEVEL = SLOG::EnvLevel("Local_DsG4Scintillation", "DEBUG") ; 
-const plog::Severity Local_DsG4Scintillation::LEVEL = error ; 
-#endif
 
 
 #include "U4Stack.h"
@@ -191,20 +170,12 @@ Local_DsG4Scintillation::Local_DsG4Scintillation(G4int opticksMode, const G4Stri
     theSlowIntegralTable = NULL;
     theReemissionIntegralTable = NULL;
 
-    //verboseLevel = 2;
-    //G4cout << " Local_DsG4Scintillation set verboseLevel by hand to " << verboseLevel << G4endl;
-
-#ifdef STANDALONE
-    {
-        const char* level_ = getenv("Local_DsG4Scintillation_verboseLevel") ;
-        const char* fallback = "0" ;  
-        int level =  std::atoi(level_ ? level_ : fallback) ;
-        SetVerboseLevel(level); 
-        std::cout << "Local_DsG4Scintillation::Local_DsG4Scintillation level " << level << " verboseLevel " << verboseLevel << std::endl ;  
-    }
-#endif
-
+    const char* level_ = getenv("Local_DsG4Scintillation_verboseLevel");
+    const char* fallback = "0";
+    int         level = std::atoi(level_ ? level_ : fallback);
+    SetVerboseLevel(level);
     if (verboseLevel > 0) {
+        std::cout << "Local_DsG4Scintillation::Local_DsG4Scintillation level " << level << " verboseLevel " << verboseLevel << std::endl;
         G4cout << GetProcessName() << " is created " << G4endl;
     }
 
@@ -263,14 +234,8 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
 // evenly along the track segment and uniformly into 4pi.
 
 {
-    aParticleChange.Initialize(aTrack);
+    aParticleChange.Initialize(aTrack);  
     // SCB CHECK SEE notes/issues/Geant4_UseGivenVelocity_after_refraction_is_there_a_better_way_than_the_kludge_fix.rst
-
-    G4cout << "[DsG4Scint][DBG-ENTRY] PostStepDoIt called: trk="
-           << aTrack.GetTrackID()
-           << " particle=" << aTrack.GetDefinition()->GetParticleName()
-           << " dE=" << aStep.GetTotalEnergyDeposit()/MeV << " MeV"
-           << " m_noop=" << m_noop << G4endl;
 
     if (m_noop) {               // do nothing, bail
         aParticleChange.SetNumberOfSecondaries(0);
@@ -315,11 +280,6 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
     }
 
     G4double TotalEnergyDeposit = aStep.GetTotalEnergyDeposit();
-#ifdef STANDALONE
-    //LOG(info) << "TotalEnergyDeposit " << TotalEnergyDeposit ; 
-#endif
-
-
     if (verboseLevel > 0 ) { 
       G4cout << " TotalEnergyDeposit " << TotalEnergyDeposit 
              << " material " << aTrack.GetMaterial()->GetName() << G4endl;
@@ -378,12 +338,7 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
     else {
       Ratio_timeconstant = aMaterialPropertiesTable->GetProperty("NeutronCONSTANT");
     }
-
-    G4cout << "[DsG4Scint][DBG-TRACE] particle=" << aParticleName
-           << " Fast=" << Fast_Intensity << " Slow=" << Slow_Intensity
-           << " Ratio_tc=" << Ratio_timeconstant
-           << " dE=" << aStep.GetTotalEnergyDeposit()/MeV << " MeV" << G4endl;
-
+    
   //-----------------------------------------------------//
 
     G4StepPoint* pPreStepPoint  = aStep.GetPreStepPoint();
@@ -438,17 +393,18 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
         
         
         G4double ScintillationYield = 0;
-        {// Yield.  Try const-property first (older GDML); fall back to vector property (Geant4 11+).
-            bool constFound = false;
-            if (aMaterialPropertiesTable->ConstPropertyExists("SCINTILLATIONYIELD")) {
-                ScintillationYield = aMaterialPropertiesTable->GetConstProperty("SCINTILLATIONYIELD");
-                constFound = true;
+        {// Yield.  Material must have this or we lack raisins dayetras
+           /* const G4MaterialPropertyVector* ptable =
+                aMaterialPropertiesTable->GetProperty("SCINTILLATIONYIELD");
+            if (!ptable) {
+                G4cout << "ConstProperty: failed to get SCINTILLATIONYIELD"
+                       << G4endl;
+                return G4VRestDiscreteProcess::PostStepDoIt(aTrack, aStep);
             }
-            if (!constFound) {
-                const G4MaterialPropertyVector* ptable =
-                    aMaterialPropertiesTable->GetProperty("SCINTILLATIONYIELD");
-                if (ptable) ScintillationYield = ptable->Value(0);
-            }
+            ScintillationYield = ptable->Value(0);
+            std::cout<<"sci ScintillationYield = "<<ScintillationYield<<std::endl;*/
+            ScintillationYield = aMaterialPropertiesTable->GetConstProperty("SCINTILLATIONYIELD");
+           // std::cout<<"sci const ScintillationYield = "<<ScintillationYield<<std::endl;
         }
 
         G4double ResolutionScale    = 1;
@@ -500,31 +456,8 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
             ScintillationYield = YieldFactor * ScintillationYield; 
         }
 
-        // EDEPSIM_DOKEBIRKS_VISE=1: bypass the field-blind inline Birks above
-        // and ask edep-sim's DokeBirks (installed as the global G4EmSaturation)
-        // for the drift-field-aware visible energy directly. We can't rely on
-        // step->GetNonIonizingEnergyDeposit() here because EDepSim::SecondaryEnergy
-        // (which writes visE into the step's NIEL field) is itself a PostStepDoIt
-        // process and may run after this one — its result wouldn't be visible
-        // on the step yet. Calling VisibleEnergyDepositionAtAStep() reproduces
-        // the same DokeBirks chain (E-field read, LET, recomb prob, NEST partition)
-        // without depending on process ordering.
-        //
-        // Fast/slow split below still requires GammaCONSTANT/AlphaCONSTANT/
-        // NeutronCONSTANT/OpticalCONSTANT (Ratio_timeconstant must be non-null).
-        static const bool kUseDokeBirksVisE =
-            getenv("EDEPSIM_DOKEBIRKS_VISE") && getenv("EDEPSIM_DOKEBIRKS_VISE")[0] != '0';
-        static const G4double kW_LAr_MeV = 19.5e-6;
-
-        G4double MeanNumberOfPhotons;
-        if (kUseDokeBirksVisE) {
-            G4EmSaturation* emSat = G4EmParameters::Instance()->GetEmSaturation();
-            G4double visE = (emSat != nullptr) ? emSat->VisibleEnergyDepositionAtAStep(&aStep) : 0.0;
-            MeanNumberOfPhotons = (visE > 0.0) ? (visE / kW_LAr_MeV) : 0.0;
-        } else {
-            MeanNumberOfPhotons = ScintillationYield * QuenchedTotalEnergyDeposit;
-        }
-
+        G4double MeanNumberOfPhotons= ScintillationYield * QuenchedTotalEnergyDeposit;
+   
         // Implemented the fast simulation method from GLG4Scint
         // Jianglai 09-05-2006
         
@@ -546,11 +479,6 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
         else {
             NumTracks = G4int(G4Poisson(MeanNumberOfTracks));
         }
-        G4cout << "[DsG4Scint][DBG-YIELD] trk=" << aTrack.GetTrackID()
-               << " ScintYield=" << ScintillationYield
-               << " QuenchedDE=" << QuenchedTotalEnergyDeposit/MeV << " MeV"
-               << " MeanNph=" << MeanNumberOfPhotons
-               << " NumTracks=" << NumTracks << G4endl;
         if ( verboseLevel > 0 ) {
           G4cout << " Generated " << NumTracks << " scint photons. mean(scint photons) = " << MeanNumberOfTracks << G4endl;
         }
@@ -563,12 +491,8 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
              << G4endl;
     }
     // G4cerr<<"Scint weight is "<<weight<<G4endl;
-    G4cout << "[DsG4Scint][DBG-EDEPSIM] step trk=" << aTrack.GetTrackID()
-           << " dE=" << TotalEnergyDeposit/MeV << " MeV"
-           << " NumTracks(edepsim_photons)=" << NumTracks << G4endl;
-
     if (NumTracks <= 0) {
-        // return unchanged particle and no secondaries
+        // return unchanged particle and no secondaries 
         aParticleChange.SetNumberOfSecondaries(0);
         return G4VRestDiscreteProcess::PostStepDoIt(aTrack, aStep);
     }
@@ -626,35 +550,7 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
   
      }
 
-//-------------------------------------------------//
-
-#ifdef WITH_G4OPTICKS
-
-    CPho ancestor = CPhotonInfo::Get(&aTrack); 
-    int ancestor_id = ancestor.get_id() ; 
-
-
-    /**
-    ancestor_id:-1 
-        normal case, meaning that aTrack was not a photon
-        so the generation loop will yield "primary" photons 
-        with id : gs.offset + i  
-             
-    ancestor_id>-1
-        aTrack is a photon that may be about to reemit (Num=0 or 1) 
-        ancestor_id is the absolute id of the primary parent photon, 
-        this id is retained thru any subsequent remission secondary generations
-    **/
-
-#endif
-
-#ifdef STANDALONE
     U4::GenPhotonAncestor(&aTrack);  
-#endif
-
-
-//-------------------------------------------------//
-
     for(G4int scnt = 0 ; scnt < nscnt ; scnt++){
 
          G4double ScintillationTime = 0.*ns;
@@ -681,53 +577,21 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
                ScintillationTime = 0.*ns  ;
          }
 
-        G4int NumPhoton =  NumVec[scnt] ;
+        G4int NumPhoton =  NumVec[scnt] ; 
 
-        G4cout << "[DsG4Scint][DBG-EDEPSIM]   scnt=" << scnt
-               << " NumPhoton(this_component)=" << NumPhoton << G4endl;
-
-#ifdef WITH_G4OPTICKS
         if(flagReemission) assert( NumPhoton == 0 || NumPhoton == 1);   // expecting only 0 or 1 remission photons
         bool is_opticks_genstep = NumPhoton > 0 && !flagReemission ; 
-
-        CGenstep gs ; 
         if(is_opticks_genstep && (m_opticksMode & 1))
         {
-            gs = G4Opticks::Get()->collectGenstep_Local_DsG4Scintillation_r4695( &aTrack, &aStep, NumPhoton, scnt, ScintillationTime); 
+            NumPhoton = std::min( NumPhoton, 3 );  // for debugging purposes it helps to have less photons
+            U4::CollectGenstep_DsG4Scintillation_r4695( &aTrack, &aStep, NumPhoton, scnt, ScintillationTime); 
         }
-#endif
-
-#ifdef STANDALONE
-        if(flagReemission) assert( NumPhoton == 0 || NumPhoton == 1);   // expecting only 0 or 1 remission photons
-        bool is_opticks_genstep = NumPhoton > 0 && !flagReemission ;
-        if(is_opticks_genstep && (m_opticksMode & 1))
-        {
-            U4::CollectGenstep_DsG4Scintillation_r4695( &aTrack, &aStep, NumPhoton, scnt, ScintillationTime);
-            G4cout << "[DsG4Scint][DBG-EICOPTICKS] genstep collected: trk=" << aTrack.GetTrackID()
-                   << " scnt=" << scnt
-                   << " NumPhoton_to_GPU=" << NumPhoton << G4endl;
-        }
-        else
-        {
-            G4cout << "[DsG4Scint][DBG-EICOPTICKS] genstep SKIPPED: trk=" << aTrack.GetTrackID()
-                   << " scnt=" << scnt
-                   << " NumPhoton=" << NumPhoton
-                   << " flagReemission=" << flagReemission
-                   << " opticksMode=" << m_opticksMode << G4endl;
-        }
-#endif
 
          if( m_opticksMode == 0 || (m_opticksMode & 2) )
          {
 
          for(G4int i = 0 ; i < NumPhoton ; i++) {
-#ifdef WITH_G4OPTICKS
-           G4Opticks::Get()->setAlignIndex( ancestor_id > -1 ? ancestor_id : gs.offset + i );  // aka photon_id
-#endif
-#ifdef STANDALONE
            U4::GenPhotonBegin(i); 
-#endif
-
            G4double sampledEnergy;
            if ( !flagReemission ) {
                 // normal scintillation
@@ -900,22 +764,9 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
             aSecondaryTrack->SetWeight( weight );
             if ( verboseLevel > 0 ) {
               G4cout << " aSecondaryTrack->SetWeight( " << weight<< " ) ; aSecondaryTrack->GetWeight() = " << aSecondaryTrack->GetWeight() << G4endl;}        
-
-#ifdef WITH_G4OPTICKS
-           aSecondaryTrack->SetUserInformation(CPhotonInfo::MakeScintillation(gs, i, ancestor ));  
-           G4Opticks::Get()->setAlignIndex(-1);
-#endif
-
-#ifdef STANDALONE
            U4::GenPhotonEnd(i, aSecondaryTrack);  
-#endif
-
          }    // i:genloop over NumPhoton
-  
- 
          }   //  (opticksMode == 0) || (opticksMode & 2 )   : opticks not enabled, or opticks enabled and doing Geant4 comparison
-
-
    }         // scntloop
 
 
@@ -930,55 +781,6 @@ Local_DsG4Scintillation::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep
 
     return change ; 
 }
-
-
-
-#ifdef WITH_G4OPTICKS
-G4MaterialPropertyVector* Local_DsG4Scintillation::getMaterialProperty(const char* name, G4int materialIndex)
-{
-    const G4MaterialTable* theMaterialTable = G4Material::GetMaterialTable();
-    G4int numOfMaterials = G4Material::GetNumberOfMaterials();
-    assert( materialIndex < numOfMaterials ); 
-
-    G4Material* aMaterial = (*theMaterialTable)[materialIndex];
-    G4MaterialPropertiesTable* aMaterialPropertiesTable = aMaterial->GetMaterialPropertiesTable();
-    G4MaterialPropertyVector* prop = aMaterialPropertiesTable ? aMaterialPropertiesTable->GetProperty(name) : nullptr ;  
-    return prop ; 
-}
-
-G4PhysicsOrderedFreeVector* Local_DsG4Scintillation::getScintillationIntegral(G4int scnt, G4int materialIndex) const
-{
-    G4PhysicsOrderedFreeVector* ScintillationIntegral = NULL;
-
-    if ( scnt == 0 ){
-          ScintillationIntegral =
-                (G4PhysicsOrderedFreeVector*)((*theFastIntegralTable)(materialIndex));
-    }
-    else{
-          ScintillationIntegral =
-                (G4PhysicsOrderedFreeVector*)((*theSlowIntegralTable)(materialIndex));
-    }         
-
-    return ScintillationIntegral ; 
-}
-
-
-G4double Local_DsG4Scintillation::getSampledEnergy(G4int scnt, G4int materialIndex) const 
-{
-    G4PhysicsOrderedFreeVector* ScintillationIntegral = getScintillationIntegral(scnt, materialIndex); 
-    G4double CIIvalue = G4UniformRand()*ScintillationIntegral->GetMaxValue();
-    G4double sampledEnergy = ScintillationIntegral->GetEnergy(CIIvalue);
-    return sampledEnergy ; 
-}
-
-G4double Local_DsG4Scintillation::getSampledWavelength(G4int scnt, G4int materialIndex) const
-{
-    G4double sampledEnergy = getSampledEnergy(scnt, materialIndex ); 
-    G4double wavelength = h_Planck*c_light/sampledEnergy ; 
-    G4double wavelength_nm = wavelength/nm ; 
-    return wavelength_nm ; 
-}
-#endif
 
 
 // BuildThePhysicsTable for the scintillation process

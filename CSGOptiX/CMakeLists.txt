@@ -1,13 +1,10 @@
 set(name CSGOptiX)
 
-find_package(OptiX)
-
-set(buildenvpath ${CMAKE_CURRENT_BINARY_DIR}/buildenv.sh)
-file(WRITE ${buildenvpath} "export OPTIX_VERSION=${OptiX_VERSION}\n")
-message(STATUS "write to buildenvpath ${buildenvpath} ")
+find_package(OptiX 7 REQUIRED)
 
 set(SOURCES)
-set(OPTIX_SOURCES)
+set(OPTIX_PTX_SRC CSGOptiX7.cu)
+set(OPTIX_PTX_TARGET CSGOptiX7_ptx)
 
 
 list(APPEND SOURCES
@@ -18,11 +15,7 @@ list(APPEND SOURCES
 
     Ctx.cc
     Properties.cc
-    GAS.cc
-    GAS_Builder.cc
     PIP.cc
-    IAS.cc
-    IAS_Builder.cc
     SBT.cc
 )
 
@@ -33,33 +26,18 @@ list(APPEND HEADERS
     CSGOPTIX_LOG.hh
 )
 
-list(APPEND OPTIX_SOURCES 
-     CSGOptiX7.cu
-     Check.cu
-)
+add_library(${OPTIX_PTX_TARGET} OBJECT ${OPTIX_PTX_SRC})
+set_target_properties(${OPTIX_PTX_TARGET} PROPERTIES CUDA_PTX_COMPILATION ON)
+target_include_directories(${OPTIX_PTX_TARGET} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CSG>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/sysrap>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/qudarap>)
+target_compile_definitions(${OPTIX_PTX_TARGET} PUBLIC WITH_PRD WITH_SIMULATE WITH_SIMTRACE WITH_RENDER
+        OPTICKS_CSGOPTIX WITH_THRUST OPTICKS_CSG WITH_CONTIGUOUS WITH_S_BB CONFIG_Debug OPTICKS_SYSRAP WITH_CHILD
+        PLOG_LOCAL RNG_PHILOX DEBUG_TAG DEBUG_PIDX DEBUG_PIDXYZ OPTICKS_OKCONF OPTICKS_QUDARAP NVCC)
+target_link_libraries(${OPTIX_PTX_TARGET} PUBLIC OptiX::OptiX)
 
-
-message(STATUS "OPTIX_SOURCES : ${OPTIX_SOURCES} ")
-
-set(_generated_PTX_files "")
-
-foreach(cu_src IN LISTS OPTIX_SOURCES)
-    message(STATUS "Processing ${cu_src}")
-    add_library(${cu_src} OBJECT ${cu_src})
-    set_target_properties(${cu_src} PROPERTIES CUDA_PTX_COMPILATION ON)
-    target_include_directories(${cu_src} PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/CSG>
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/sysrap>
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/qudarap>)
-    target_compile_definitions(${cu_src} PUBLIC WITH_PRD WITH_SIMULATE WITH_SIMTRACE WITH_RENDER
-            OPTICKS_CSGOPTIX WITH_THRUST OPTICKS_CSG WITH_CONTIGUOUS WITH_S_BB CONFIG_Debug OPTICKS_SYSRAP WITH_CHILD
-            PLOG_LOCAL RNG_PHILOX DEBUG_TAG DEBUG_PIDX DEBUG_PIDXYZ WITH_STTF WITH_SLOG OPTICKS_OKCONF OPTICKS_QUDARAP NVCC)
-    target_link_libraries(${cu_src} PUBLIC OptiX::OptiX)
-
-    list(APPEND _generated_PTX_files "${cu_src}.ptx")
-endforeach()
-
-message(STATUS "_generated_PTX_files ${_generated_PTX_files}") 
+message(STATUS "Configured PTX build for ${OPTIX_PTX_SRC}")
 
 add_library( ${name} SHARED ${SOURCES} ${HEADERS} )
 
@@ -74,11 +52,10 @@ target_compile_definitions( ${name} PUBLIC OPTICKS_CSGOPTIX )
 WITH_THRUST compile definition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* WITH_THRUST is needed for Custom4 on GPU complex math functions used by qpmt.h 
+* WITH_THRUST is needed for the GPU complex math functions used by qpmt.h
 
-* However Custom4 also used on CPU without WITH_THRUST (eg by junosw), so 
-  the WITH_THRUST definition must be PRIVATE to avoid interference with other
-  Custom4 usage
+* The CPU side does not require WITH_THRUST, so keep the definition PRIVATE
+  to avoid leaking it into dependents
 
 #]=]
 
@@ -93,7 +70,7 @@ target_include_directories( ${name} PUBLIC
 
 target_link_libraries(${name} PUBLIC OptiX::OptiX CSG QUDARap SysRap gphox)
 
-install(FILES $<TARGET_OBJECTS:CSGOptiX7.cu> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES $<TARGET_OBJECTS:${OPTIX_PTX_TARGET}> DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/${name})
 
 install(TARGETS ${name}

@@ -33,7 +33,6 @@
 #include <sys/wait.h>
 
 #include "SSys.hh"
-#include "SStr.hh"
 #include "SLOG.hh"
 
 #include "scuda.h"
@@ -593,22 +592,10 @@ const char* SSys::getenvvar( const char* envkey, const char* fallback )
 
 const char* SSys::username()
 {
-#ifdef _MSC_VER
-    const char* user = SSys::getenvvar("USERNAME") ;
-#else
     const char* user = SSys::getenvvar("USER") ;
-#endif
     return user ? user : "SSys-username-undefined" ; 
 }
 
-
-#ifdef _MSC_VER
-const char* SSys::hostname()
-{
-    // https://stackoverflow.com/questions/27914311/get-computer-name-and-logged-user-name
-    return NULL ; 
-}
-#else
 
 #ifndef HOST_NAME_MAX
 # if defined(_POSIX_HOST_NAME_MAX)
@@ -628,7 +615,6 @@ const char* SSys::hostname()
     gethostname(hostname, HOST_NAME_MAX);
     return hostname[0] == '\0' ? "SSys-hostname-undefined" : strdup(hostname) ; 
 }
-#endif
 
 int SSys::unsetenv( const char* ekey )
 {
@@ -781,16 +767,18 @@ so that will often be the HOME directory, eg /home/blyth
 
 int SSys::RunPythonCode(const char* code)
 {
-    const char* python_executable = SSys::ResolvePython() ; 
-    LOG(info) 
-         << " code [" << code  << "]"
-         << " python_executable " << python_executable 
-         ;   
+    if (code == nullptr)
+        return 101;
 
-    const char* arg1 = "-c" ; 
-    const char* arg2 = SStr::Concat("'", code, "'") ;  
+    const char* python_executable = SSys::ResolvePython();
+    LOG(info)
+        << " code [" << code << "]"
+        << " python_executable " << python_executable;
 
-    int RC = code == NULL ? 101 : SSys::exec(python_executable,arg1, arg2) ;
+    const char*       arg1 = "-c";
+    const std::string arg2 = std::string("'") + code + "'";
+
+    int RC = SSys::exec(python_executable, arg1, arg2.c_str());
     LOG(info) << " RC " << RC ; 
     return RC ; 
 }
@@ -801,7 +789,5 @@ void SSys::Exit(int rc)
     LOG(fatal) << " rc " << rc ; 
     std::raise(SIGINT) ; 
 }
-
-
 
 

@@ -1,8 +1,5 @@
 set(name QUDARap)
 
-set(Custom4_VERBOSE ON)
-find_package(Custom4 CONFIG)
-
 set(DEV_SOURCES
     QSim_cerenkov_dev.cu
 )
@@ -143,11 +140,6 @@ add_library( ${name} ${SOURCES} )
 get_target_property(ILL ${name} INTERFACE_LINK_LIBRARIES)
 message(STATUS "${name} INTERFACE_LINK_LIBRARIES:${ILL} " )
 
-if(Custom4_FOUND)
-   target_compile_definitions( ${name} PUBLIC WITH_CUSTOM4 )
-   target_include_directories( ${name} PUBLIC ${Custom4_INCLUDE_DIR})
-endif()
-
 find_package(OpenSSL REQUIRED)
 
 target_link_libraries( ${name} SysRap
@@ -157,28 +149,15 @@ target_link_libraries( ${name} SysRap
 
 target_compile_definitions( ${name} PUBLIC OPTICKS_QUDARAP DEBUG_TAG)
 
-
-#[=[
-
-Global compile definitions such as DEBUG_TAG and DEBUG_PIDX are defined in sysrap/CMakeLists.txt 
-and should be flipped there, NOT HERE. 
-
-For local debugging do flips within files, and do not commit like that 
-as they may cause difficult to debug build inconsistencies. 
-
-#]=]
-
-
 #[=[
 
 WITH_THRUST compile definition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* WITH_THRUST is needed for the Custom4 GPU complex math functions used by qpmt.h 
+* WITH_THRUST is needed for the GPU complex math functions used by qpmt.h
 
-* However Custom4 also used on CPU without WITH_THRUST (eg by junosw), so 
-  the WITH_THRUST definition must be PRIVATE to avoid interference with other
-  Custom4 usage
+* The CPU side does not require WITH_THRUST, so keep the definition PRIVATE
+  to avoid leaking it into dependents
 
 #]=]
 

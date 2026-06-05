@@ -5,7 +5,6 @@
 #include "SSys.hh"
 #include "ssys.h"
 
-#include "SStr.hh"
 #include "sstr.h"
 #include "spath.h"
 
@@ -423,7 +422,6 @@ const char* SOpticksResource::OpticksGDMLPath()
 const char* SOpticksResource::SomeGDMLPath_ = "SomeGDMLPath" ; 
 const char* SOpticksResource::SomeGDMLPath()
 {
-    // TODO: use GDXML instead of the old CGDMLKludge 
     const char* path0 = getenv(SomeGDMLPath_) ;   
     const char* path1 = spath::Resolve("$HOME/.opticks/GEOM/$GEOM/origin.gdml");  
     const char* path2 = nullptr ; 
@@ -547,15 +545,15 @@ const char* SOpticksResource::Get(const char* key) // static
 
 std::string SOpticksResource::Desc() 
 {
-    std::vector<std::string> keys ; 
-    SStr::Split(KEYS, ' ', keys); 
+    std::vector<std::string> keys;
+    sstr::Split(KEYS, ' ', keys);
 
     std::stringstream ss ; 
     ss << "SOpticksResource::Desc" << std::endl ; 
     for(unsigned i=0 ; i < keys.size() ; i++ ) 
     {
-        const char* key = keys[i].c_str() ; 
-        std::string lab = SStr::Format("SOpticksResource::Get(\"%s\") ", key) ; 
+        const char* key = keys[i].c_str();
+        std::string lab = sstr::Format_("SOpticksResource::Get(\"%s\") ", key);
         const char* val = Get(key); 
         ss 
             << std::setw(70) << lab.c_str() 
@@ -593,5 +591,3 @@ std::string SOpticksResource::Desc()
     std::string s = ss.str(); 
     return s ; 
 }
-
-

@@ -252,12 +252,7 @@ inline U4Tree* U4Tree::Create(
     return tree ;
 }
 
-inline U4Tree::U4Tree(
-    stree* st_,
-    const G4VPhysicalVolume* const top_,
-    U4SensorIdentifier* sid_
-    )
-    :
+inline U4Tree::U4Tree(stree *st_, const G4VPhysicalVolume *const top_, U4SensorIdentifier *sid_) :
     st(st_),
     top(top_),
     sid(sid_ ? sid_ : new U4SensorIdentifierDefault),
@@ -268,8 +263,8 @@ inline U4Tree::U4Tree(
     wls(nullptr),
     enable_osur(!ssys::getenvbool(__DISABLE_OSUR_IMPLICIT)),
     enable_isur(!ssys::getenvbool(__DISABLE_ISUR_IMPLICIT)),
-    material_debug(ssys::getenvint(__MATERIAL_DEBUG,0)),
-    solid_debug(ssys::getenvint(__SOLID_DEBUG,0))
+    material_debug(ssys::getenvint(__MATERIAL_DEBUG, 0)),
+    solid_debug(ssys::getenvint(__SOLID_DEBUG, 0))
 {
     init();
 }
@@ -403,7 +398,7 @@ wavelength sampling. Stored in st->standard for serialization and upload.
 
 inline void U4Tree::initWLS()
 {
-    wls = U4WLS::Create(st->material, materials);
+    wls = U4WLS::Create(materials);
     if (wls)
     {
         st->standard->wls_icdf = wls->icdf;

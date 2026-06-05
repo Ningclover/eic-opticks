@@ -47,7 +47,7 @@ struct U4WLS
     static constexpr const char *WLSCOMPONENT_KEY = "WLSCOMPONENT";
     static constexpr const char *WLSTIMECONSTANT_KEY = "WLSTIMECONSTANT";
 
-    static U4WLS *Create(const NPFold *materials, const std::vector<const G4Material *> &mats);
+    static U4WLS *Create(const std::vector<const G4Material *> &mats);
 
     const NP *icdf;           // (num_wls*3, 4096, 1) stacked HD ICDF for all WLS materials
     const NP *mat_map;        // (num_total_mat,) int: material idx -> base ICDF row, or -1
@@ -74,7 +74,7 @@ Returns nullptr if no WLS materials are found.
 
 **/
 
-inline U4WLS *U4WLS::Create(const NPFold *materials, const std::vector<const G4Material *> &mats)
+inline U4WLS *U4WLS::Create(const std::vector<const G4Material *> &mats)
 {
     std::vector<int> wls_indices;
     std::vector<const G4MaterialPropertyVector *> wls_components;
@@ -125,8 +125,12 @@ For each WLS material:
 
 inline U4WLS::U4WLS(const std::vector<const G4Material *> &mats, const std::vector<int> &wls_indices,
                     const std::vector<const G4MaterialPropertyVector *> &wls_components,
-                    const std::vector<double> &wls_time_consts)
-    : icdf(nullptr), mat_map(nullptr), time_constants(nullptr), num_wls(wls_indices.size()), num_mat(mats.size())
+                    const std::vector<double> &wls_time_consts) :
+    icdf(nullptr),
+    mat_map(nullptr),
+    time_constants(nullptr),
+    num_wls(wls_indices.size()),
+    num_mat(mats.size())
 {
     assert(num_wls > 0);
     assert(wls_components.size() == num_wls);
